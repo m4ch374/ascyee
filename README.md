@@ -26,8 +26,9 @@ Use the following command to compile `ascyee.c`: <br />
 
 ## Important Notes
 1. Program developed and tested in Windows, compatibility with Linux is **UNCERTAIN**
-2. Using Command Prompt or Windows Powershell is heavily adviced, for some odd reason Windows Terminal prints differently <br />(please enlighten me if you know the reason)
-3. Files in `/stb_lib` was **NOT** written by me
+2. Using Command Prompt or Windows Powershell is heavily adviced, for some odd reason Windows Terminal prints differently <br />
+3. ^^ please enlighten me if you know the reason ^^
+4. Files in `/stb_lib` was **NOT** written by me
 
 - - - -
 ### Credits
