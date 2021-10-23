@@ -19,7 +19,6 @@ bool is_valid_input(char *input);
 void process_image(char *input, int downscale_ratio);
 
 double *get_greyscaled_data(unsigned char *data, int height, int width);
-
 double **get_downscale_map(double *data, int actual_width, int actual_height, 
         int n_cols, int height);
 
@@ -34,15 +33,11 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    // Get input from user
+    // only process image if input is valid
     char *input = argv[1];
     int downscale_ratio = atoi(argv[2]);
-
-    // only process image if input is valid
-    if (is_valid_input(argv[2])) {
-
+    if (is_valid_input(argv[2]))
         process_image(input, downscale_ratio);
-    }
 
     return 0;
 }
@@ -61,18 +56,6 @@ bool is_valid_input(char *input) {
     }
 
     return true;
-}
-
-// Removes the `\n` in the input
-char *strtrunc(char *input) {
-    int len = strlen(input);
-    char *result = calloc(sizeof(*input), strlen(input));
-    for (int i = 0; i < len - 1; i++) {
-        result[i] = input[i];
-    }
-
-    result[len - 1] = '\0';
-    return result;
 }
 
 // Processes the image
@@ -101,6 +84,7 @@ void process_image(char *input, int downscale_ratio) {
 
     print_ascii(downscaled_map, actual_width, actual_height);
     
+    // Free malloced memory
     free_downscale_map(downscaled_map, actual_height);
     stbi_image_free(image_data);
     free(greyscaled_data);
