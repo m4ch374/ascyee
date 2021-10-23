@@ -15,51 +15,47 @@ static const int MAX_CHAR = 1024;
 static const char *ASCII_MAP = 
     "$@B%%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'. ";
 
-// Multiplyer for downscaling
-static const int DOWNSCALE_MULTIPLYER_X = 5;
-static const int DOWNSCALE_MULTIPLYER_Y = 10;
-
 bool is_valid_input(char *input);
-char *strtrunc(char *input);
-void process_image(char *input);
+void process_image(char *input, int downscale_ratio);
 
-unsigned char **get_downscale_map(unsigned char *data, 
-    int actual_width, int actual_height, int n_cols);
+double *get_greyscaled_data(unsigned char *data, int height, int width);
 
-unsigned char get_chunk_average(unsigned char *data, 
-    int starting_width, int starting_height, int width);
+double **get_downscale_map(double *data, int actual_width, int actual_height, 
+        int n_cols, int height);
 
-void print_ascii(unsigned char **map, int width, int height);
-void free_downscale_map(unsigned char **downscale_map, int height);
+void print_ascii(double **map, int width, int height);
+void free_downscale_map(double **downscale_map, int height);
 
-int main(void) {
+int main(int argc, char *argv[]) {
+
+    if (argc != 3) {
+        printf("error: too many / few arguments: \n");
+        printf("./ascyee [image_path] [downscale_ratio]\n\n");
+        return 1;
+    }
 
     // Get input from user
-    char input[MAX_CHAR];
-    printf("Enter the path for image: ");
-    fgets(input, MAX_CHAR, stdin);
+    char *input = argv[1];
+    int downscale_ratio = atoi(argv[2]);
 
     // only process image if input is valid
-    if (is_valid_input(input)) {
+    if (is_valid_input(argv[2])) {
 
-        // Remove the `\n` in the original string
-        char *processed_input = strtrunc(input);
-        process_image(processed_input);
-        free(processed_input);
+        process_image(input, downscale_ratio);
     }
 
     return 0;
 }
 
-// Determine if input is valid
-// i.e input is valid when it is a character
-// excluding `spaces` and `\n`
+// Determine if input is valid 
+// i.e input is valid when it is a character 
+// excluding `spaces` and `\n` 
 //
 // Outputs error if false
 bool is_valid_input(char *input) {
-    for (int i = 0; i < strlen(input) - 1; i++) {
-        if (input[i] < '!' || input[i] > '~') {
-            printf("Invalid input, program terminates\n");
+    for (int i = 0; input[i]; i++) {
+        if (input[i] < '0' || input[i] > '9') {
+            printf("Invalid input: downscale ratio is not a positive intiger: program terminates\n");
             return false;
         }
     }
@@ -81,54 +77,65 @@ char *strtrunc(char *input) {
 
 // Processes the image
 // Output error message if any
-void process_image(char *input) {
+void process_image(char *input, int downscale_ratio) {
     int width, height, n_channels;
 
     // loading greyscale images
-    unsigned char *image_data = stbi_load(input, &width, &height, &n_channels, 1);
+    unsigned char *image_data = stbi_load(input, &width, &height, &n_channels, 3);
 
     // Make sure the file isnt corrupt or unable to open
-    assert(image_data != NULL);
+    if (image_data == NULL) {
+        printf("Image is corrupted or not found: program terminates\n");
+        return;
+    }
+
+    double *greyscaled_data = get_greyscaled_data(image_data, height, width);
 
     // The actual width and height of the generated ASCII art
-    int actual_width = width / DOWNSCALE_MULTIPLYER_X;
-    int actual_height = height / DOWNSCALE_MULTIPLYER_Y;
+    int actual_width = width / downscale_ratio;
+    int actual_height = height / (downscale_ratio * 2);
 
     // Downscale the data and return a 2d unsigned char array
-    unsigned char **downscaled_map = 
-        get_downscale_map(image_data, actual_width, actual_height, width);
+    double **downscaled_map = 
+        get_downscale_map(greyscaled_data, actual_width, actual_height, width, height);
 
     print_ascii(downscaled_map, actual_width, actual_height);
     
     free_downscale_map(downscaled_map, actual_height);
     stbi_image_free(image_data);
+    free(greyscaled_data);
+}
+
+double *get_greyscaled_data(unsigned char *data, int height, int width) {
+    int map_len = height * width;
+    double *map = calloc(map_len, sizeof(*map));
+
+    for (int i = 0; i < map_len; i++) {
+        int index = i * 3;
+        map[i] = 0.21 * (double)data[index] + 0.72 * (double)data[index + 1]
+                    + 0.07 * (double)data[index + 2];
+    }
+
+    return map;
 }
 
 // Process the original data
 // Return a 2d array of downscaled data
-unsigned char **get_downscale_map(unsigned char *data, 
-    int actual_width, int actual_height, int n_cols) {
+double **get_downscale_map(double *data, 
+    int actual_width, int actual_height, int n_cols, int height) {
 
     // Initialize map
-    unsigned char **map = calloc(actual_height, sizeof(unsigned char *));
+    double **map = calloc(actual_height, sizeof(*map));
     for (int i = 0; i < actual_height; i++) {
 
-        // Set start height of original data
-        int start_height = i * DOWNSCALE_MULTIPLYER_Y - 1;
-        start_height = (start_height < 0) ? 0 : start_height;
+        int target_height = round((i / (double)actual_height) * height);
         
         // Initialize row
-        unsigned char *row = calloc(actual_width, sizeof(unsigned char));
+        double *row = calloc(actual_width, sizeof(*row));
         for (int j = 0; j < actual_width; j++) {
-
-            // Set start width of original data
-            int start_width = j * DOWNSCALE_MULTIPLYER_X - 1;
-            start_width = (start_width < 0) ? 0 : start_width;
-
-            unsigned char average = 
-                get_chunk_average(data, start_width, start_height, n_cols);
-
-            row[j] = average;
+            int target_width = round((j / (double)actual_width) * n_cols);
+            
+            row[j] = data[(target_height * n_cols) + target_width];
         }
         map[i] = row;
     }
@@ -136,30 +143,13 @@ unsigned char **get_downscale_map(unsigned char *data,
     return map;
 }
 
-unsigned char get_chunk_average(unsigned char *data, 
-    int starting_width, int starting_height, int width) {
-
-    int total = 0;
-    for (int i = 0; i < DOWNSCALE_MULTIPLYER_Y; i++) {
-        for (int j = 0; j < DOWNSCALE_MULTIPLYER_X; j++) {
-            total += (int)data[(starting_height + i) * width + (starting_width + j)];
-        }
-    }
-
-    unsigned char result = (unsigned char)
-        round((double)total / (double)(DOWNSCALE_MULTIPLYER_Y * DOWNSCALE_MULTIPLYER_X));
-
-    //printf("%d\n", result);
-    return result;
-}
-
-void print_ascii(unsigned char **map, int width, int height) {
+void print_ascii(double **map, int width, int height) {
     // Number of elements in ASCII_MAP
     int map_len = strlen(ASCII_MAP);
 
     for (int i = 0; i < height; i++) {
         for (int j = 0; j < width; j++) {
-            int mapped_value = round(((double)map[i][j]/ (double)255) * map_len);
+            int mapped_value = round((map[i][j]/ (double)255) * map_len);
 
             printf("%c", ASCII_MAP[mapped_value]);
         }
@@ -167,7 +157,7 @@ void print_ascii(unsigned char **map, int width, int height) {
     }
 }
 
-void free_downscale_map(unsigned char **downscale_map, int height) {
+void free_downscale_map(double **downscale_map, int height) {
     for (int i = 0; i < height; i++) {
         free(downscale_map[i]);
     }
