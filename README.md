@@ -22,7 +22,7 @@ Use the following command to compile `ascyee.c`: <br />
 ```
 
 * `file_name`: the file name of the image you want to convert (absolute path / relative path)
-* `dwonscale_ratio`: Ratio for downscaling the image (only takes in positive intiger)
+* `dwonscale_ratio`: Ratio for downscaling the image (only takes in positive integer)
 
 ## Important Notes
 1. Program developed and tested in Windows, compatibility with Linux is **UNCERTAIN**
